@@ -48,6 +48,8 @@ else
 		left=0
 		right=0
 
+		indent="> "
+		fieldRegex="^public[[:space:]][^\(\)]*\;|^protected[[:space:]][^\(\)]*\;"
 		# While loop
 		while read -r line
 		do
@@ -88,27 +90,35 @@ else
 					internal=false
 				fi
 			fi
-			if [[ $line =~ public[[:space:]]class[[:space:]]$class[[:space:]] ]]
+			# Remove isolated bracket
+			# Replace bracket at end of string, if not one line 
+			# (does not have both brackets)
+			if ! [[ $line =~ \{.*\} ]]
+			then
+				line=${line/{/""}
+			fi
+			if [[ $line =~ public[[:space:]]class.*[[:space:]]$class[[:space:]]?\<?|protected[[:space:]]class[[:space:]]$class[[:space:]] ]]
 			then
 				# is the regular class
-				# Do nothing
+				internalClasses+="$indent$line\n"
+				indent=">> "
 				continue
 			else
 				# could be an internal class
-				if [[ $line =~ public.class ]]
+				if [[ $line =~ public[[:space:]]class|protected[[:space:]]class ]]
 				then
-					# echo "found internal class"
 					# Is an internal public class
 					# add the name to the method
 					# turn into array
 					IFS=' ' read -ra array <<< "$line"
 					# grab value (should be index 2)
 					internalName=${array[2]}
+					internalClasses+="\n$indent$line\n"
 					# set useSubClass=true
 					internal=true
 					left=1
 					right=0
-				elif [[ $line =~ private.class ]]
+				elif [[ $line =~ private[[:space:]]class ]]
 				then
 					# echo "found internal private class"
 					# Is an internal private class.
@@ -116,28 +126,26 @@ else
 					skip=true
 					left=1
 					right=0
+				elif [[ $line =~ $fieldRegex ]]
+				then
+					# Public or protected field
+					internalClasses+=" * $line\n"
 				fi
 			fi
 			# See if the line contains the regex expression
 			# i.e., see if the line is a public / protected method
 			if [[ $line =~ public.*\(.*\)|protected.*\(.*\) ]]
 			then
-				# Replace bracket at end of string, if not one line 
-				# (does not have both brackets)
-				if ! [[ $line =~ \{.*\} ]]
+				if [[ $line =~ public[[:space:]]+$class[[:space:]]?\(.*\) ]]
 				then
-					line=${line/{/""}
-				fi
-				# The line is an appropriate method
-				if [[ $line =~ public[[:space:]]$class[[:space:]]?\(.*\) ]]
-				then
-					# Construtor
-					constructors+="$line\n\n"
-				elif [ $internal = true ] && [[ $line =~ public[[:space:]]$internalName[[:space:]]?\(.*\) ]]
+					# Constructor
+					constructors+="$line\n"
+				elif [ $internal = true ] && [[ $line =~ public[[:space:]]+$internalName[[:space:]]?\(.*\) ]]
 				then
 					# Internal Constructor
-					IFS=' ' read -ra array <<< "$line"
-					constructors+="${array[0]} $class.${array[1]} ${array[2]}\n\n"
+					IFS=" " read -ra array <<< "$line"
+					# Adds all elements in array
+					constructors+="${array[@]}\n"
 				else
 					# Is a method
 					if [ $internal = true ]
@@ -167,15 +175,22 @@ else
 							fi
 							i=$(( --i ))
 						done
-						methods+="${array[0]} ${array[1]} ${array[2]} ${array[3]} ${array[4]} ${array[5]}\n\n"
+						internalMethods+="${array[@]}\n"
 					else
-						methods+="$line\n\n"
+						methods+="$line\n"
 					fi
 				fi
+			elif [[ $line =~ private.*\(.*\) ]] && [[ $internal = false ]]
+			then
+				privateMethods+="$line\n"
 			fi
 		done < $1
+		echo "###########   $class   ###########"
+		echo -e "$internalClasses"
 		echo -e "------------Constructors-----------\n\n$constructors"
 		echo -e "--------------Methods--------------\n\n$methods"
+		echo -e "-----------Private Methods---------\n\n$privateMethods"
+		echo -e "----------Internal Methods---------\n\n$internalMethods"
 	else
 		echo "File provided was not a java file."
 	fi

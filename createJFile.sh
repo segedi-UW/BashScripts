@@ -20,7 +20,7 @@ then
 	if [ "$1" = "-h" ]
 	then
 		# Help option
-		echo -e "cjc ( -i | -m | -a ) <name>\ncjc -h\n\n-h help\n-i interface (default is class)\n-m include main method in default (class)\n-a abstract class (default is class)"
+		echo -e "cjc ( -i | -m | -a | -t ) <name>\ncjc -h\n\n-h help\n-i interface (default is class)\n-m include main method in default (class)\n-a abstract class (default is class)\n-t include a junit static import statement"
 		exit 1
 	fi
 	if [ -z "$2" ]
@@ -42,6 +42,9 @@ then
 		then
 			# Change to abstract class
 			type="abstract class"
+		elif [ "$1" = "-t" ]
+		then
+			classPrint+="import static org.junit.jupiter.api.Assertions.*;\nimport org.junit.jupiter.api.Test;\n\n"
 		else
 			# Invalid option
 			echo "Invalid option argument: $1 is not an option."
@@ -53,7 +56,7 @@ else
 	echo "Required arguments: <name>. Use \"cjc -h\" for help."
 	exit 1
 fi
-classPrint="public $type $name {\n"
+classPrint+="public $type $name {\n"
 if [ "$isMain" = true ]
 then
 	classPrint+="\tpublic static void main(String[] args) {\n\t\t// TODO: Implement main method\n\t}"

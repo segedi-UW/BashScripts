@@ -47,18 +47,18 @@ then
 	exit 2
 fi
 # Path is valid (checked)
+echo "Creating Makefile in: $path"
 if [ "$1" = "-m" ]
 then
 	# Use provided main class
 	main=$2
 fi
-if [ -f "$path/junit.jar" ]
-then
-	echo "Detected junit testing. Modifying for \"test\" files."
-	junit=true
-else
-	junit=false
-fi
+junit=false
+	if ls $path | grep -q ^junit[0-9].jar 
+	then
+		echo "Detected junit testing. Modifying Makefile compile and run command for files with \"test|Test\" in name."
+		junit=true
+	fi
 mapfile -t files < <( ls $path | grep .java )
 makeFile="$path/Makefile"
 if test -f $makeFile
@@ -109,7 +109,13 @@ do
 	fi
 done
 # Prints to the file
-echo -e "run: compile\n\tjava $main">>$makeFile
+run="java $main"
+if [[ -z $main ]]
+then
+	echo "No main method detected -> substituting run command."
+	run="@echo 'Successfully compiled (TODO: Manual entry run command required)'"
+fi
+echo -e "run: compile\n\t$run">>$makeFile
 echo "compile:" $compileList>>$makeFile
 echo -en "$printList">>$makeFile
 # Print tests
